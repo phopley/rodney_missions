@@ -1,24 +1,23 @@
 <?xml version="1.0"?>
 <package format="2">
   <name>rodney_missions</name>
-  <version>0.0.0</version>
+  <version>0.1.0</version>
   <description>The rodney_missions package</description>
 
-  <maintainer email="philip@thehopleys.me.uk">Philip Hopley</maintainer>
+  <maintainer email="sleepyserver6@gmail.com">Philip Hopley</maintainer>
 
   <license>BSD</license>
 
-  <author email="philip@thehopleys.me.uk">Philip Hopley</author>
+  <author email="sleepyserver6@gmail.com">Philip Hopley</author>
 
   <buildtool_depend>catkin</buildtool_depend>
   
-  <build_depend>rospy</build_depend>
-  <build_depend>actionlib_msgs</build_depend>
+  <build_depend>rospy</build_depend>  
+  <build_depend>smach</build_depend>
   
   <build_export_depend>rospy</build_export_depend>
   
-  <exec_depend>rospy</exec_depend>
-  <exec_depend>actionlib_msgs</exec_depend>
-
+  <exec_depend>rospy</exec_depend>  
+  <exec_depend>smach</exec_depend>
 
 </package>
