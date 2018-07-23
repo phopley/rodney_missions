@@ -7,7 +7,7 @@ from smach import State
 # Greeting State
 class Greeting(State):
     def __init__(self):
-        State.__init__(self, outcomes=['success','aborted','preempted'],
+        State.__init__(self, outcomes=['success'],
                        input_keys=['detected'])
     
     def execute(self, userdata):        
