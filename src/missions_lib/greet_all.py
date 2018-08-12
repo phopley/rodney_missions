@@ -19,6 +19,7 @@ class Greeting(State):
         if len(userdata.detected.names_detected) == 0:
             greeting = 'No one recognised'
         else:
+            greeting = 'Hello '
             for n in userdata.detected.names_detected:
                 greeting += n + ' '
                 
