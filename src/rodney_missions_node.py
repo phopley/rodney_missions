@@ -8,11 +8,14 @@ from std_msgs.msg import String, Empty
 from smach import State, StateMachine
 from smach_ros import MonitorState, SimpleActionState, IntrospectionServer
 from face_recognition_msgs.msg import scan_for_facesAction, scan_for_facesGoal
+from speech.msg import voice
                           
 # The PREPARE state
 class Prepare(State):
     def __init__(self):
         State.__init__(self, outcomes=['mission2','done_task'], input_keys=['mission'])
+        self.__speech_pub_ = rospy.Publisher('/speech/to_speak', voice, queue_size=5)
+        self.__text_out_pub = rospy.Publisher('/robot_face/text_out', String, queue_size=5)        
     
     def execute(self, userdata):        
         # Based on the userdata either change state to the required mission or carry out single task
@@ -25,7 +28,22 @@ class Prepare(State):
         if parameters[0] == 'M2':
             # Mission 2 is scan for faces and greet those known, there are no other parameters with this mission request
             retVal = 'mission2'
-            
+        elif parameters[0] == 'T1':
+            # Simple Task 1 is play a supplied wav file and move the face lips
+            voice_msg = voice()
+            voice_msg.text = ""
+            voice_msg.wav = parameters[1]            
+            # Publish topic for speech wav and robot face animation
+            self.__speech_pub_.publish(voice_msg)
+            self.__text_out_pub.publish(parameters[2])
+        elif parameters[0] == 'T2':
+            # Simple Task 2 is to speak the supplied text and move the face lips
+            voice_msg = voice()
+            voice_msg.text = parameters[1]
+            voice_msg.wav = ""
+            # Publish topic for speech and robot face animation
+            self.__speech_pub_.publish(voice_msg)
+            self.__text_out_pub.publish(parameters[2])
         return retVal
         
 # The REPORT state
