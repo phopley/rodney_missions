@@ -18,32 +18,38 @@ class Prepare(State):
         self.__text_out_pub = rospy.Publisher('/robot_face/text_out', String, queue_size=5)        
     
     def execute(self, userdata):        
-        # Based on the userdata either change state to the required mission or carry out single task
-        # userdata.mission contains the mission or single task and a number of parameters seperated by '-'
+        # Based on the userdata either change state to the required mission or carry out single job
+        # userdata.mission contains the mission or single job and a number of parameters seperated by '^'
         retVal = 'done_task';
         
-        # Split into parameters using '-' as the delimiter
-        parameters = userdata.mission.split("-")
+        # Split into parameters using '^' as the delimiter
+        parameters = userdata.mission.split("^")
         
         if parameters[0] == 'M2':
             # Mission 2 is scan for faces and greet those known, there are no other parameters with this mission request
             retVal = 'mission2'
-        elif parameters[0] == 'T1':
-            # Simple Task 1 is play a supplied wav file and move the face lips
+        elif parameters[0] == 'J1':
+            # Simple Job 1 is play a supplied wav file and move the face lips
             voice_msg = voice()
             voice_msg.text = ""
             voice_msg.wav = parameters[1]            
             # Publish topic for speech wav and robot face animation
             self.__speech_pub_.publish(voice_msg)
             self.__text_out_pub.publish(parameters[2])
-        elif parameters[0] == 'T2':
-            # Simple Task 2 is to speak the supplied text and move the face lips
+        elif parameters[0] == 'J2':
+            # Simple Job 2 is to speak the supplied text and move the face lips
             voice_msg = voice()
             voice_msg.text = parameters[1]
             voice_msg.wav = ""
             # Publish topic for speech and robot face animation
             self.__speech_pub_.publish(voice_msg)
             self.__text_out_pub.publish(parameters[2])
+        elif parameters[0] == 'J3':
+            # Simple Job 3 is to move the head/camera. This command will only be sent in manual mode. The resultant
+            # published message will only be sent once per received command.
+            # parameters[1] will either be 'u', 'd' or '-'
+            # parameters[2] will either be 'l', 'r' or '-' 
+            # TODO
         return retVal
         
 # The REPORT state
