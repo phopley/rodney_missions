@@ -15,7 +15,8 @@ class Prepare(State):
     def __init__(self):
         State.__init__(self, outcomes=['mission2','done_task'], input_keys=['mission'])
         self.__speech_pub_ = rospy.Publisher('/speech/to_speak', voice, queue_size=5)
-        self.__text_out_pub = rospy.Publisher('/robot_face/text_out', String, queue_size=5)        
+        self.__text_out_pub = rospy.Publisher('/robot_face/text_out', String, queue_size=5)
+        self.__man_head = rospy.Publisher('/head_control_node/manual', String, queue_size=1)
     
     def execute(self, userdata):        
         # Based on the userdata either change state to the required mission or carry out single job
@@ -47,9 +48,9 @@ class Prepare(State):
         elif parameters[0] == 'J3':
             # Simple Job 3 is to move the head/camera. This command will only be sent in manual mode. The resultant
             # published message will only be sent once per received command.
-            # parameters[1] will either be 'u', 'd' or '-'
-            # parameters[2] will either be 'l', 'r' or '-' 
-            # TODO
+            # parameters[1] will either be 'u', 'd', 'c' or '-'
+            # parameters[2] will either be 'l', 'r' or '-'             
+            self.__man_head.publish(parameters[1]+parameters[2])
         return retVal
         
 # The REPORT state
