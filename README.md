@@ -35,3 +35,22 @@ Actions:
 State Machines:
 
 ![alt text](https://github.com/phopley/rodney-project/blob/master/docs/images/Opti-statemachine1.png "State Machine")
+
+The top level state machine contains the following states
+* `WAITING`:
+  WHAT IT DOES
+  
+* `PREPARE`:
+  WHAT IT DOES
+  
+* `REPORT`:
+  WHAT IT DOES
+  
+* `MISSION2`:
+  WHAT IT DOES
+  
+  * `SCANNING`:
+    WHAT IT DOES
+    
+  * `GREETING`:
+    WHAT IT DOES
