@@ -32,4 +32,6 @@ Actions:
 * `face_recognition_msgs/scan_for_faces`:  
   Client used to request the  head/camera is moved and scanning for a recognised face at each set position is conducted
   
-TODO ADD IMAGE STATE MACHINE
+State Machines:
+
+![alt text](https://github.com/phopley/rodney-project/blob/master/docs/images/Opti-statemachine1.png "State Machine")
