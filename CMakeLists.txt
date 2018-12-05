@@ -9,8 +9,11 @@ project(rodney_missions)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   rospy
+  smach
   std_msgs
   speech
+  face_recognition_msgs
+  tf_object_detection
 )
 
 ## System dependencies are found with CMake's conventions
