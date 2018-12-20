@@ -349,7 +349,7 @@ class RodneyMissionsNode:
             # Now add the sub state machine for mission 3 to the top level one
             StateMachine.add('MISSION2', 
                              self.__sm_mission2, 
-                             transitions={'complete':'REPORT','preempted':'DEFAULT_HEAD_POSITION','aborted':'aborted'})
+                             transitions={'complete':'REPORT','preempted':'REPORT','aborted':'aborted'})
                                          
             # ------------------------- State machine for mission 3 -------------------------        
             # Create a sub state machine for mission 3 - object search
@@ -413,7 +413,7 @@ class RodneyMissionsNode:
             # Now add the sub state machine for mission 3 to the top level one
             StateMachine.add('MISSION3', 
                              self.__sm_mission3, 
-                             transitions={'complete':'REPORT', 'preempted':'DEFAULT_HEAD_POSITION','aborted':'aborted'}) 
+                             transitions={'complete':'REPORT', 'preempted':'REPORT','aborted':'aborted'}) 
 
             
         # Create and start the introspective server so that we can use smach_viewer
