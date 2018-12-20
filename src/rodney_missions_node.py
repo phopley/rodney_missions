@@ -9,14 +9,14 @@ from servo_msgs.msg import pan_tilt
 from face_recognition_msgs.msg import face_recognition
 from tf_object_detection.msg import detection_results
 from smach import State, StateMachine
-from smach_ros import MonitorState, IntrospectionServer
+from smach_ros import MonitorState, SimpleActionState, IntrospectionServer
+from actionlib_msgs.msg import GoalStatus
 from speech.msg import voice
+from head_control.msg import point_headAction, point_headGoal
 
 # Helper class to hold code used by serveral different states
 class MissionsHelper():
     def __init__(self):
-        self.__camera_position_request_pub = rospy.Publisher('/head_control_node/head_position_request',
-                                                             pan_tilt, queue_size=1)
         self.__speech_pub_ = rospy.Publisher('/speech/to_speak', voice, queue_size=1)
         self.__text_out_pub = rospy.Publisher('/robot_face/text_out', String, queue_size=1)
         
@@ -30,8 +30,11 @@ class MissionsHelper():
         self.__camera_default_pan_position = rospy.get_param("/head/position/pan", 90)
         self.__camera_default_tilt_position = rospy.get_param("/head/position/tilt", 45)
         # Step value to move the camera by when searching
-        self.__pan_step_value = rospy.get_param("/head/view_step/pan", 10)
-        self.__tilt_step_value = rospy.get_param("/head/view_step/tilt", 10)
+        self.__pan_step_value = rospy.get_param("/head/view_step/pan", 25)
+        self.__tilt_step_value = rospy.get_param("/head/view_step/tilt", 25)
+        # Step value to move the camera in manual mode
+        self.__manual_pan_step_value = rospy.get_param("/head/maunal_view_step/pan", 10)
+        self.__manual_tilt_step_value = rospy.get_param("/head/maunal_view_step/tilt", 10)
         
         # When true and scanning pan angle will increase, otherwise decrease
         self.__increase_pan = True
@@ -58,22 +61,29 @@ class MissionsHelper():
         # Publish
         self.__speech_pub_.publish(voice_msg)
         self.__text_out_pub.publish(text_to_display)
-         
+
+    # Function to return the camera start position when scanning within head movement range         
     def CameraToStartPos(self):
         # Set the camera position to pan min and tilt min
         self.__position_request.pan = self.__pan_min
         self.__position_request.tilt = self.__tilt_min
         # Set the variable that says which direction the pan is going. Start by incrementing
         self.__increase_pan_ = True
-        # Send message to move the camera
-        self.__camera_position_request_pub.publish(self.__position_request)
+        return self.__position_request
 
-    def CameraToDefaultPos(self):
-        self.__position_request.pan = self.__camera_default_pan_position
-        self.__position_request.tilt = self.__camera_default_tilt_position
-        # Send message to move the camera
-        self.__camera_position_request_pub.publish(self.__position_request)
-            
+    # Function to keep track of position after action to set to default position
+    def CameraAtDefaultPos(self, userdata, status, result):
+        if status == GoalStatus.SUCCEEDED:
+            self.__position_request.pan = self.__camera_default_pan_position
+            self.__position_request.tilt = self.__camera_default_tilt_position
+        
+    # Function returns camera default position
+    def CameraDefaultPos(self):
+        default_position = pan_tilt(self.__camera_default_pan_position, self.__camera_default_tilt_position)
+        return default_position           
+ 
+    # Function to return the next position when scanning within the head movement range.
+    # Also returns indication if all areas scanned or more left           
     def CameraToNextPos(self):
         all_areas_scanned = False
         # Calculate the next position of the head/camera        
@@ -109,57 +119,62 @@ class MissionsHelper():
       	if all_areas_scanned == True:
       	    # Reset camera/head position to default values                
             self.__position_request.pan = self.__camera_default_pan_position
-            self.__position_request.tilt = self.__camera_default_tilt_position
-                    
-        # Send message to move the camera
-        self.__camera_position_request_pub.publish(self.__position_request)
+            self.__position_request.tilt = self.__camera_default_tilt_position                    
        
-        return all_areas_scanned
+        return all_areas_scanned, self.__position_request
         
     def CameraManualMove(self, direction):
+        relative_request = pan_tilt(0, 0)
         # Check for up command
         if 'u' in direction:
-            self.__position_request.tilt += self.__tilt_step_value
-            if self.__position_request.tilt > self.__tilt_max:
-                # Moved out of range, put back on max                   
-	            self.__position_request.tilt = self.__tilt_max;
+            relative_request.tilt = self.__manual_tilt_step_value
+            if (self.__position_request.tilt + relative_request.tilt) > self.__tilt_max:
+                # Would move out of range so no change                   
+	            relative_request.tilt = 0
+            else:
+                # Keep track
+                self.__position_request.tilt += relative_request.tilt
                     
         # Check for down command
         if 'd' in direction:
-            self.__position_request.tilt -= self.__tilt_step_value
-            if self.__position_request.tilt < self.__tilt_min:
-                # Moved out of range, put back on min                  
-	            self.__position_request.tilt = self.__tilt_min;
+            relative_request.tilt = -(self.__manual_tilt_step_value)
+            if (self.__position_request.tilt + relative_request.tilt) < self.__tilt_min:
+                # Would move out of range so no change                 
+	            relative_request.tilt = 0
+            else:
+                # Keep track
+                self.__position_request.tilt += relative_request.tilt
             
         # Check for left commnand
         if 'l' in direction:
-            self.__position_request.pan += self.__pan_step_value
-            if self.__position_request.pan > self.__pan_max:
-                # Moved out of range, put back on max                   
-	            self.__position_request.pan = self.__pan_max;
+            relative_request.pan = self.__manual_pan_step_value
+            if (self.__position_request.pan + relative_request.pan) > self.__pan_max:
+                # Would move out of range so no change                   
+	            relative_request.pan = 0
+            else:
+                # Keep track
+                self.__position_request.pan += relative_request.pan
             
         # Check for right command
         if 'r' in direction:
-            self.__position_request.pan -= self.__pan_step_value
-            if self.__position_request.pan < self.__pan_min:
-                # Moved out of range, put back on min                  
-	            self.__position_request.pan = self.__pan_min;
+
+            relative_request.pan = -(self.__manual_pan_step_value)
+            if (self.__position_request.pan + relative_request.pan) < self.__pan_min:
+                # Would move out of range so no change                   
+	            relative_request.pan = 0
+            else:
+                # Keep track
+                self.__position_request.pan += relative_request.pan            
             
-        # Check for return to default command
-        if 'c' in direction:
-            self.__position_request.pan = self.__camera_default_pan_position
-            self.__position_request.tilt = self.__camera_default_tilt_position
-            
-        # Send message to move the camera
-        self.__camera_position_request_pub.publish(self.__position_request)
+        return relative_request
     
                           
 # The PREPARE state
 class Prepare(State):
     def __init__(self, helper_obj):
-        State.__init__(self, outcomes=['mission2','mission3','done_task'], 
+        State.__init__(self, outcomes=['mission2','mission3','done_task','head_default','move_head'], 
                        input_keys=['mission'],
-                       output_keys=['mission_data','start'])
+                       output_keys=['mission_data','start','user_data_absolute','user_data_pan','user_data_tilt'])
         self.__helper_obj = helper_obj
     
     def execute(self, userdata):        
@@ -192,13 +207,23 @@ class Prepare(State):
             self.__helper_obj.Speak(parameters[1], parameters[2])
         elif parameters[0] == 'J3':
             # Simple Job 3 is to move the head/camera. This command will only
-            # be sent in manual mode. The resultant published message will only
-            # be sent once per received command.
+            # be sent in manual mode.
             # parameters[1] will either be 'u', 'd', 'c' or '-'
-            # parameters[2] will either be 'l', 'r' or '-'             
-            self.__helper_obj.CameraManualMove(parameters[1]+parameters[2])
+            # parameters[2] will either be 'l', 'r' or '-'
+            # Check for return to default command
+            if 'c' in parameters[1]:
+                retVal = 'head_default'
+            else:                
+                relative_request = self.__helper_obj.CameraManualMove(parameters[1]+parameters[2])                
+                # Set up user data that will be used for goal in next state
+                userdata.user_data_absolute = False # This will be a relative move
+                userdata.user_data_pan = relative_request.pan
+                userdata.user_data_tilt = relative_request.tilt
+                retVal = 'move_head'
+
         return retVal
         
+
 # The REPORT state
 class Report(State):
     def __init__(self):
@@ -209,17 +234,6 @@ class Report(State):
         # Publishes message that mission completed
         self.__pub.publish("Mission Complete")
         return 'success'        
-
-# The SUB_PREEMPTED state
-class SubPreempted(State):
-    def __init__(self, helper_obj):
-        State.__init__(self, outcomes=['complete'])
-        self.__helper_obj = helper_obj
-        
-    def execute(self, userdata):
-        # Reset camera to default position
-        self.__helper_obj.CameraToDefaultPos()
-        return 'complete'
         
 # Top level state machine. The work for each mission is another state machine
 # in the 'mission' states        
@@ -242,7 +256,7 @@ class RodneyMissionsNode:
         
         # ------------------------- Top level state machine -------------------------
         # Create top level state machine
-        self.__sm = StateMachine(outcomes=['preempted'],
+        self.__sm = StateMachine(outcomes=['preempted','aborted'],
                                  output_keys=['mission_data'])
         with self.__sm:                                   
             # Add a state which monitors for a mission to run            
@@ -258,41 +272,61 @@ class RodneyMissionsNode:
             StateMachine.add('PREPARE',
                              Prepare(self.__missions_helper),                             
                              transitions={'mission2':'MISSION2','mission3':'MISSION3',
-                                          'done_task':'WAITING'})
+                                          'done_task':'WAITING','head_default':'DEFAULT_HEAD_POSITION',
+                                          'move_head':'MOVE_HEAD'})
                              
             # Add the reporting state
             StateMachine.add('REPORT',
                              Report(),
-                             transitions={'success':'WAITING'})
+                             transitions={'success':'DEFAULT_HEAD_POSITION'})
 
-            # Add the sub-state preemeted state
-            StateMachine.add('SUB_PREEMPTED',
-                             SubPreempted(self.__missions_helper),
-                             transitions={'complete':'WAITING'})            
+            # Set up action goal for deafult head position
+            #default_position = pan_tilt()
+            default_position = self.__missions_helper.CameraDefaultPos()
+            head_goal = point_headGoal()
+            head_goal.absolute = True
+            head_goal.pan = default_position.pan
+            head_goal.tilt = default_position.tilt
+
+            # Add the default camera position state. Which moves the head to the default position
+            StateMachine.add('DEFAULT_HEAD_POSITION',
+                             SimpleActionState('head_control_node',
+                                               point_headAction,
+                                               result_cb = self.__missions_helper.CameraAtDefaultPos,
+                                               goal = head_goal),
+                             transitions={'succeeded':'WAITING','preempted':'WAITING','aborted':'aborted'})
+
+            # Add the move head state
+            StateMachine.add('MOVE_HEAD',
+                             SimpleActionState('head_control_node',
+                                               point_headAction,
+                                               goal_slots=['absolute', 'pan', 'tilt']),
+                             transitions={'succeeded':'WAITING', 'preempted':'WAITING', 'aborted':'aborted'},
+                             remapping={'absolute':'user_data_absolute', 'pan':'user_data_pan', 'tilt':'user_data_tilt'}) 
 
 
             # ------------------------- State machine for mission 2 -------------------------
             # Create a sub state machine for mission 2 - greeting
-            self.__sm_mission2 = StateMachine(outcomes=['complete', 'preempted'],
+            self.__sm_mission2 = StateMachine(outcomes=['complete','preempted','aborted'],
                                               input_keys=['start'])
 
             with self.__sm_mission2:
-                # This state will move the camera                               
-                StateMachine.add('MOVE_CAMERA_GRT',
-                                 missions_lib.MoveCameraGeeting(self.__missions_helper),
+                # This state will calculate the next head/camera position
+                StateMachine.add('PREPARE_FOR_MOVEMENT_GRT',
+                                 missions_lib.PrepareMovementGeeting(self.__missions_helper),
                                  transitions={'complete':'GREETING',
-                                              'awaiting_movement':'WAITING_FOR_MOVEMENT_GRT'},
+                                              'move':'MOVE_HEAD_GRT'},
                                  remapping={'start_in':'start','start_out':'start'})
-                                           
-                # This state will wait until the camera is moved and then 
-                # request check for face recognition on the camera image
-                StateMachine.add('WAITING_FOR_MOVEMENT_GRT',
-                                 MonitorState('/head_control_node/head_move_complete',
-                                              Empty,
-                                              self.__greet_helper.MovementCompleteGrt),
-                                 transitions={'valid':'WAITING_FOR_MOVEMENT_GRT',
-                                              'invalid':'WAITING_FOR_ANALYSIS_GRT',
-                                              'preempted':'preempted'})
+ 
+                # This state will call the action to move the head/camera and on completion request the face recognition
+                # operation on the next image
+                StateMachine.add('MOVE_HEAD_GRT',
+                                 SimpleActionState('head_control_node',
+                                                   point_headAction,
+                                                   result_cb = self.__greet_helper.MovementCompleteCB,
+                                                   goal_slots=['absolute','pan','tilt']),
+                                 transitions={'succeeded':'WAITING_FOR_ANALYSIS_GRT','preempted':'preempted','aborted':'aborted'},
+                                 remapping={'absolute':'user_data_absolute','pan':'user_data_pan','tilt':'user_data_tilt'})                                          
 
                 # This state will wait until face recognition is run on the
                 # image and the results returned
@@ -305,7 +339,7 @@ class RodneyMissionsNode:
                                  remapping={'seen_dict_in':'seen_dict',
                                             'seen_dict_out':'seen_dict'},
                                  transitions={'valid':'WAITING_FOR_ANALYSIS_GRT',
-                                              'invalid':'MOVE_CAMERA_GRT',
+                                              'invalid':'PREPARE_FOR_MOVEMENT_GRT',
                                               'preempted':'preempted'}) 
                                                                       
                 StateMachine.add('GREETING',
@@ -315,30 +349,30 @@ class RodneyMissionsNode:
             # Now add the sub state machine for mission 3 to the top level one
             StateMachine.add('MISSION2', 
                              self.__sm_mission2, 
-                             transitions={'complete':'REPORT', 'preempted':'SUB_PREEMPTED'})
+                             transitions={'complete':'REPORT','preempted':'DEFAULT_HEAD_POSITION','aborted':'aborted'})
                                          
             # ------------------------- State machine for mission 3 -------------------------        
             # Create a sub state machine for mission 3 - object search
-            self.__sm_mission3 = StateMachine(outcomes=['complete', 'preempted'],
+            self.__sm_mission3 = StateMachine(outcomes=['complete', 'preempted','aborted'],
                                               input_keys=['mission_data','start'])
             
             with self.__sm_mission3:
-                # This state will move the camera
-                StateMachine.add('MOVE_CAMERA_OS',
-                                 missions_lib.MoveCameraObjectSearch(self.__missions_helper),
-                                 transitions={'awaiting_movement':'WAITING_FOR_MOVEMENT_OS',
-                                              'complete':'complete'},
+                # This state will calculate the next head/camera position
+                StateMachine.add('PREPARE_FOR_MOVEMENT_OS',
+                                 missions_lib.PrepareMovementObjectSearch(self.__missions_helper),
+                                 transitions={'complete':'complete',
+                                              'move':'MOVE_HEAD_OS'},
                                  remapping={'start_in':'start','start_out':'start'})
                                  
-                # This state will wait until the camera is moved and then
-                # request to detect objects from the camera image
-                StateMachine.add('WAITING_FOR_MOVEMENT_OS',
-                                 MonitorState('/head_control_node/head_move_complete',
-                                 Empty,
-                                 self.__os_helper.MovementCompleteOS),
-                                 transitions={'valid':'WAITING_FOR_MOVEMENT_OS', 
-                                              'invalid':'WAITING_FOR_ANALYSIS_OS',
-                                              'preempted':'preempted'})
+                # This state will call the action to move the head/camera and on completion request the object detection
+                # operation on the next image image
+                StateMachine.add('MOVE_HEAD_OS',
+                                 SimpleActionState('head_control_node',
+                                                   point_headAction,         
+                                                   result_cb = self.__os_helper.MovementCompleteCB,
+                                                   goal_slots=['absolute','pan','tilt']),
+                                 transitions={'succeeded':'WAITING_FOR_ANALYSIS_OS','preempted':'preempted','aborted':'aborted'},
+                                 remapping={'absolute':'user_data_absolute','pan':'user_data_pan','tilt':'user_data_tilt'}) 
                 
                 # This state will wait until object detection is run on an
                 # image and the results returned
@@ -362,7 +396,7 @@ class RodneyMissionsNode:
                 # object was found.
                 StateMachine.add('CHOICE_OS',
                                  missions_lib.ChoiceObjectSearch(self.__missions_helper),           
-                                 transitions= {'move_camera':'MOVE_CAMERA_OS',
+                                 transitions= {'move_camera':'PREPARE_FOR_MOVEMENT_OS',
                                                'await_user':'WAIT_FOR_USER_OS'})
                 
                 # This state will wait for a message indicating the user wishes
@@ -373,13 +407,14 @@ class RodneyMissionsNode:
                                  Empty,
                                  self.__os_helper.UserAckOS),
                                  transitions={'valid':'WAIT_FOR_USER_OS',
-                                              'invalid':'MOVE_CAMERA_OS',
+                                              'invalid':'PREPARE_FOR_MOVEMENT_OS',
                                               'preempted':'preempted'})
                                                             
             # Now add the sub state machine for mission 3 to the top level one
             StateMachine.add('MISSION3', 
                              self.__sm_mission3, 
-                             transitions={'complete':'REPORT', 'preempted':'SUB_PREEMPTED'}) 
+                             transitions={'complete':'REPORT', 'preempted':'DEFAULT_HEAD_POSITION','aborted':'aborted'}) 
+
             
         # Create and start the introspective server so that we can use smach_viewer
         sis = IntrospectionServer('server_name', self.__sm, '/SM_ROOT')
@@ -396,7 +431,7 @@ class RodneyMissionsNode:
     # in user_data to the PREPARE state
     def MissionRequestCB(self, userdata, msg):                
         # Take the message data and send it to the next state in the userdata
-        userdata.mission = msg.data;       
+        userdata.mission = msg.data       
                         
         # Returning False means the state transition will follow the invalid line
         return False

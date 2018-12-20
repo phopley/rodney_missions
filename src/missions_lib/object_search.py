@@ -3,25 +3,35 @@
 
 import rospy
 from smach import State
+from actionlib_msgs.msg import GoalStatus
 from std_msgs.msg import Empty
+from servo_msgs.msg import pan_tilt
 
-# MOVE_CAMERA_OD State
-class MoveCameraObjectSearch(State):
+
+# PREPARE_FOR_MOVEMENT_OS State
+class PrepareMovementObjectSearch(State):
     def __init__(self, helper_obj):
-        State.__init__(self, outcomes=['awaiting_movement','complete'],
+        State.__init__(self, outcomes=['complete','move'],
                        input_keys=['start_in'],
-                       output_keys=['start_out'])
+                       output_keys=['start_out','user_data_absolute','user_data_pan','user_data_tilt'])
         self.__helper_obj = helper_obj                                 
                        
     def execute(self, userdata):
+        position_request = pan_tilt()
+
         # Is this a new search?
         if userdata.start_in == True:
             userdata.start_out = False
             scan_complete = False
-            # Set the camera position to start position (pan min and tilt min)
-            self.__helper_obj.CameraToStartPos()
+            # get the camera start position (pan min and tilt min)
+            position_request = self.__helper_obj.CameraToStartPos()
         else:            
-            scan_complete = self.__helper_obj.CameraToNextPos()
+            scan_complete, position_request = self.__helper_obj.CameraToNextPos()
+
+        # Set up user data that will be used for goal in next state if not complete
+        userdata.user_data_absolute = True
+        userdata.user_data_pan = position_request.pan
+        userdata.user_data_tilt = position_request.tilt
 
         if scan_complete == True:
             greeting = "Mission complete Rodney standing by"
@@ -29,7 +39,7 @@ class MoveCameraObjectSearch(State):
             self.__helper_obj.Speak(greeting, greeting)
             next_outcome = 'complete'
         else:
-            next_outcome = 'awaiting_movement'                
+            next_outcome = 'move'                
         	    
         return next_outcome
 
@@ -62,15 +72,13 @@ class ObjectSearchHelper():
         self.__object_detection_request_pub = rospy.Publisher('tf_object_detection_node/start',
                                                               Empty, queue_size=1)
 
-    def MovementCompleteOS(self, userdata, msg):
-        # Camera movement is complete
-
-        # Request the object detection
-        object_detection_request = Empty()
-        self.__object_detection_request_pub.publish(object_detection_request)         
+    def MovementCompleteCB(self, userdata, status, result):
+        if status == GoalStatus.SUCCEEDED:
+            # Camera movement is complete
+            # Request the object detection
+            object_detection_request = Empty()
+            self.__object_detection_request_pub.publish(object_detection_request)         
         
-        # Returning False means the state transition will follow the invalid outcome
-        return False
         
     def AnalysisCompleteOS(self, userdata, msg):
         # Analysis for object detection complete
@@ -91,11 +99,7 @@ class ObjectSearchHelper():
         return False
         
     def UserAckOS(self, userdata, msg):
-        # User acknowledged so move on
-        
-        # Set start to False so the next state knows this is a continuation of
-        # the mission and not a new mission
-        userdata.start = False
+        # User acknowledged so move on        
         
         # Returning False means the state transition will follow the invalid outcome
         return False

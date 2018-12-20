@@ -2,6 +2,10 @@
 Changelog for package rodney_missions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Unreleased
+------------------
+* Head movement now controlled by an action state
+
 0.2.0 (2018-12-05)
 ------------------
 * Added mission 3
