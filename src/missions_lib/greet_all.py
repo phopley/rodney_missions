@@ -3,10 +3,66 @@
 # that it sees who are known
 
 import rospy
-from smach import State
+from smach import State, StateMachine
+from smach_ros import SimpleActionState
 from actionlib_msgs.msg import GoalStatus
-from std_msgs.msg import Empty
-from servo_msgs.msg import pan_tilt
+from head_control.msg import point_headAction, point_headGoal
+from face_recognition_msgs.msg import scan_for_facesAction
+
+# Child (derived) class. Parent class is StateMachine
+class Mission2StateMachine(StateMachine):
+    def __init__(self, helper_obj):
+        StateMachine.__init__(self, outcomes=['complete','preempted','aborted'], input_keys=['start'])
+
+        self.__helper_obj = helper_obj
+
+        with self:
+            # This state will calculate the next head/camera position
+            StateMachine.add('PREPARE_FOR_MOVEMENT_GRT',
+                             PrepareMovementGeeting(self.__helper_obj),
+                             transitions={'complete':'GREETING','move':'MOVE_HEAD_GRT'},
+                             remapping={'start_in':'start','start_out':'start'})
+ 
+            # This state will call the action to move the head/camera
+            StateMachine.add('MOVE_HEAD_GRT',
+                             SimpleActionState('head_control_node',
+                                               point_headAction,                                                  
+                                               goal_slots=['absolute','pan','tilt']),
+                             transitions={'succeeded':'SCAN_FOR_FACES','preempted':'preempted','aborted':'aborted'},
+                             remapping={'absolute':'user_data_absolute','pan':'user_data_pan','tilt':'user_data_tilt'})                                          
+
+            # This state will call the action to scan for faces on the image from the camera
+            StateMachine.add('SCAN_FOR_FACES',
+                             SimpleActionState('face_recognition',
+                                               scan_for_facesAction,
+                                               result_cb=self.face_recognition_result_cb,
+                                               input_keys=['seen_dict_in'],
+                                               output_keys=['seen_dict_out']),
+                              remapping={'seen_dict_in':'seen_dict','seen_dict_out':'seen_dict'},                       
+                              transitions={'succeeded':'PREPARE_FOR_MOVEMENT_GRT','preempted':'preempted','aborted':'aborted'})
+                                                                      
+            StateMachine.add('GREETING',
+                             Greeting(self.__helper_obj),
+                             transitions={'complete':'complete'})
+
+    def face_recognition_result_cb(self, userdata, status, result):
+        if status == GoalStatus.SUCCEEDED:
+            # Face recognition action complete
+            local_dict = userdata.seen_dict_in
+            if len(result.ids_detected) > 0:
+                # Recognised faces detected. Have we seen them before or are they new
+                for idx, val in enumerate(result.ids_detected):
+                    if val not in local_dict:
+                        # Add to dictionary
+                        local_dict[val] = result.names_detected[idx]
+
+                        # Log who was seen                                     
+                        rospy.loginfo("Greeting: I have seen %s", result.names_detected[idx])
+
+                # Update disctionary stored in user data        
+                userdata.seen_dict_out = local_dict
+
+        # By not returning anything the state will return with the corresponding outcome of the action
 
 
 # PREPARE_FOR_MOVEMENT_GRT State
@@ -18,23 +74,21 @@ class PrepareMovementGeeting(State):
         self.__helper_obj = helper_obj
                                                              
     def execute(self, userdata):
-        position_request = pan_tilt()
-
         # Is this the start of a new mission
         if userdata.start_in == True:
             userdata.start_out = False
             # clear the seen dictionary
             userdata.seen_dict = {}
             scan_complete = False
-            # get the camera start position (pan min and tilt min)
-            position_request = self.__helper_obj.CameraToStartPos()
+            # get the camera start position (pan min and tilt max)
+            position_request_pan,  position_request_tilt = self.__helper_obj.CameraToStartPos()
         else:            
-            scan_complete, position_request = self.__helper_obj.CameraToNextPos()
+            scan_complete, position_request_pan, position_request_tilt = self.__helper_obj.CameraToNextPos()
         
         # Set up user data that will be used for goal in next state if not complete
         userdata.user_data_absolute = True
-        userdata.user_data_pan = position_request.pan
-        userdata.user_data_tilt = position_request.tilt
+        userdata.user_data_pan = position_request_pan
+        userdata.user_data_tilt = position_request_tilt        
 
         if scan_complete == True:
             next_outcome = 'complete'
@@ -77,35 +131,3 @@ class Greeting(State):
         
         return 'complete'
 
-
-# Helper class for greeting
-class GreetingHelper():
-    def __init__(self):
-        self.__scan_request_pub = rospy.Publisher('face_recognition_node/start',
-                                                  Empty, queue_size=1)
-
-    def MovementCompleteCB(self, userdata, status, result):
-        if status == GoalStatus.SUCCEEDED:
-            # Camera movement is complete
-            # Request the face recognition
-            face_recognition_request = Empty()
-            self.__scan_request_pub.publish(face_recognition_request)    
-        
-    def AnalysisCompleteGrt(self, userdata, msg):
-        # Analysis for face recognition is complete
-        local_dict = userdata.seen_dict_in
-        if len(msg.ids_detected) > 0:
-            # Recognised faces detected. Have we seen then before or are they new
-            for idx, val in enumerate(msg.ids_detected):
-                if val not in local_dict:
-                    # Add to dictionary
-                    local_dict[val] = msg.names_detected[idx]
-                    
-                    # Log who was seen                                     
-                    rospy.loginfo("Greeting: I have seen %s", msg.names_detected[idx])
-            
-            # Update disctionary stored in user data        
-            userdata.seen_dict_out = local_dict
-                                                 
-        # Returning False means the state transition will follow the invalid outcome
-        return False

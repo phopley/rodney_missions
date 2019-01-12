@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="2">
   <name>rodney_missions</name>
-  <version>0.2.0</version>
+  <version>1.0.0</version>
   <description>The rodney_missions package</description>
 
   <maintainer email="sleepyserver6@gmail.com">Philip Hopley</maintainer>
@@ -16,8 +16,7 @@
   <build_depend>smach</build_depend>
   <build_depend>std_msgs</build_depend>
   <build_depend>speech</build_depend>
-  <build_depend>face_recognition_msgs</build_depend>
-  <build_depend>tf_object_detection</build_depend>   
+  <build_depend>face_recognition_msgs</build_depend>  
   
   <build_export_depend>rospy</build_export_depend>
   
@@ -26,6 +25,5 @@
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>speech</exec_depend>
   <exec_depend>face_recognition_msgs</exec_depend>
-  <exec_depend>tf_object_detection</exec_depend>
 
 </package>

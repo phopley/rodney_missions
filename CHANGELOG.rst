@@ -2,9 +2,12 @@
 Changelog for package rodney_missions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Unreleased
+1.0.0 (2019/01/12)
 ------------------
 * Head movement now controlled by an action state
+* Changed to use radians and the standard ROS orientation
+* Changed to use action state to start face recognition
+* Sub state machines moved into libraries
 
 0.2.0 (2018-12-05)
 ------------------
