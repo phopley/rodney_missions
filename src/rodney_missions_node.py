@@ -173,7 +173,7 @@ class MissionsHelper():
 # The PREPARE state
 class Prepare(State):
     def __init__(self, helper_obj):
-        State.__init__(self, outcomes=['mission2','done_task','head_default','move_head'], 
+        State.__init__(self, outcomes=['mission2','mission3','done_task','head_default','move_head'], 
                        input_keys=['mission'],
                        output_keys=['mission_data','start','user_data_absolute','user_data_pan','user_data_tilt'])
         self.__helper_obj = helper_obj
@@ -192,6 +192,12 @@ class Prepare(State):
             # other parameters with this mission request
             userdata.start = True
             retVal = 'mission2'
+        elif parameters[0] == 'M3':
+            # Mission 3 is scan for the given object
+            # parameters[1] will contain the object to detect
+            userdata.mission_data = parameters[1]
+            userdata.start = True
+            retVal = 'mission3'
         elif parameters[0] == 'J1':
             # Simple Job 1 is play a supplied wav file and move the face lips           
             # Publish topic for speech wav and robot face animation
@@ -260,7 +266,7 @@ class RodneyMissionsNode:
             # Add state to prepare the mission            
             StateMachine.add('PREPARE',
                              Prepare(self.__missions_helper),                             
-                             transitions={'mission2':'MISSION2',
+                             transitions={'mission2':'MISSION2','mission3':'MISSION3',
                                           'done_task':'WAITING','head_default':'DEFAULT_HEAD_POSITION',
                                           'move_head':'MOVE_HEAD'})
                              
@@ -299,7 +305,17 @@ class RodneyMissionsNode:
             # Now add the sub state machine for mission 2 to the top level one
             StateMachine.add('MISSION2', 
                              self.__sm_mission2, 
-                             transitions={'complete':'REPORT','preempted':'REPORT','aborted':'aborted'})                                        
+                             transitions={'complete':'REPORT','preempted':'REPORT','aborted':'aborted'})
+                             
+            # ------------------------- Sub State machine for mission 3 ---------------------
+            # Create a sub state machine for mission 2 - object search
+            self.__sm_mission3 = missions_lib.Mission3StateMachine(self.__missions_helper)
+
+            # Now add the sub state machine for mission 3 to the top level one
+            StateMachine.add('MISSION3', 
+                             self.__sm_mission3, 
+                             transitions={'complete':'REPORT','preempted':'REPORT','aborted':'aborted'})                                                                     
+                             
             # -------------------------------------------------------------------------------
             
         # Create and start the introspective server so that we can use smach_viewer
@@ -326,7 +342,9 @@ class RodneyMissionsNode:
     def CancelCallback(self, data):
         # If a sub statemachine for a mission is running then request it be preempted
         if self.__sm_mission2.is_running():
-            self.__sm_mission2.request_preempt()        
+            self.__sm_mission2.request_preempt()
+        elif self.__sm_mission3.is_running():
+            self.__sm_mission3.request_preempt()
         
     def ShutdownCallback(self):        
         self.__sm.request_preempt()

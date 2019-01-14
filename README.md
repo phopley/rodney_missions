@@ -16,6 +16,8 @@ Topics:
 * `speech/to_speak`:  
   Publishes `speech/voice` A message with either text containing the words to speak or wav containing the path of the wav file to play
   
+* `missions/acknowledge` Some missions require the operator to acknowledge before continuing
+  
 * `robot_face/text_out`:  
   Publishes `std_msgs/String` Text for the robot face to animate the lips to
   
@@ -25,6 +27,7 @@ Topics:
 Action Clients:
 * `head_control_node`: To request movement of the head
 * `face_recognition`: To request and obtain the result of a face recognition scan on an image from the camera
+* `object_detection`: To request and obtain the result of a object detection scan on an image from the camera
 
 Parameters:
 
@@ -73,5 +76,23 @@ The top level state machine contains the following states
     
   * `GREETING`:  
     A state responsible for forming the response to any faces recognised
+    
+* `MISSION3`:  
+  A sub state machine resposible for controlling mission 3, object recognition
+  
+  * `PREPARE_FOR_MOVEMENT_OS`:  
+    A state which sets up the next required position of the head/camera
 
+  * `MOVE_HEAD_OS`:  
+    A SimpleActionState that requests the head/camera be moved
+    
+  * `SCAN_FOR_OBJECTS`:  
+    A SimpleActionState that requests the scan for objects operation be carried out on the current image from the camera
+    
+  * `CHOICE_OS`:  
+    A state which decides on the next state to transit to based on if the object in question was detected or not.
+    
+  * `WAIT_FOR_USER_OS`:  
+     A monitor state for the /missions/acknowledge topic
+ 
 

@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   speech
   face_recognition_msgs
+  tf_object_detection
 )
 
 ## System dependencies are found with CMake's conventions
