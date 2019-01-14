@@ -126,8 +126,9 @@ class MissionsHelper():
         if 'd' in direction:
             relative_request_tilt = self.__manual_tilt_step_value
             if (self.__position_request_tilt + relative_request_tilt) > self.__tilt_max:
-                # Would move out of range so no change                   
-	            relative_request_tilt = 0
+                # Would move out of range so move to the max position                   
+	            relative_request_tilt = self.__tilt_max - self.__position_request_tilt
+	            self.__position_request_tilt = self.__tilt_max
             else:
                 # Keep track
                 self.__position_request_tilt += relative_request_tilt
@@ -136,8 +137,9 @@ class MissionsHelper():
         if 'u' in direction:
             relative_request_tilt = -(self.__manual_tilt_step_value)
             if (self.__position_request_tilt + relative_request_tilt) < self.__tilt_min:
-                # Would move out of range so no change                 
-	            relative_request_tilt = 0
+                # Would move out of range so move to the min position                 
+	            relative_request_tilt = self.__tilt_min - self.__position_request_tilt
+	            self.__position_request_tilt = self.__tilt_min
             else:
                 # Keep track
                 self.__position_request_tilt += relative_request_tilt
@@ -146,8 +148,9 @@ class MissionsHelper():
         if 'l' in direction:
             relative_request_pan = self.__manual_pan_step_value
             if (self.__position_request_pan + relative_request_pan) > self.__pan_max:
-                # Would move out of range so no change                   
-	            relative_request_pan = 0
+                # Would move out of range so move to the max                   
+	            relative_request_pan = self.__pan_max - self.__position_request_pan
+	            self.__position_request_pan = self.__pan_max
             else:
                 # Keep track
                 self.__position_request_pan += relative_request_pan
@@ -157,8 +160,9 @@ class MissionsHelper():
 
             relative_request_pan = -(self.__manual_pan_step_value)
             if (self.__position_request_pan + relative_request_pan) < self.__pan_min:
-                # Would move out of range so no change                   
-	            relative_request_pan = 0
+                # Would move out of range so so move to min                   
+	            relative_request_pan = self.__pan_min - self.__position_request_pan
+	            self.__position_request_pan = self.__pan_min
             else:
                 # Keep track
                 self.__position_request_pan += relative_request_pan            

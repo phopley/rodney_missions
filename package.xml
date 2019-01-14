@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="2">
   <name>rodney_missions</name>
-  <version>1.0.0</version>
+  <version>1.0.1</version>
   <description>The rodney_missions package</description>
 
   <maintainer email="sleepyserver6@gmail.com">Philip Hopley</maintainer>
