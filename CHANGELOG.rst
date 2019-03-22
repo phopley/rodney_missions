@@ -2,6 +2,10 @@
 Changelog for package rodney_missions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Unreleased
+------------------
+* Added functionality to enable/disable LIDAR
+
 1.0.1 (2019/01/14)
 ------------------
 * When manual head movement will exceed min/max instead of not moving the head will move to the min/max

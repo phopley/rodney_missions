@@ -21,6 +21,9 @@ Topics:
   
 * `missions/mission_complete`:  
   Publishes `std_msgs/String` Message indicating that the current mission completed
+  
+* `commands/lidar_enable`:  
+  Publishes `std_msgs/Bool` Message indicating if the LIDAR should be enabled or not
 
 Action Clients:
 * `head_control_node`: To request movement of the head

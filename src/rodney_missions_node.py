@@ -3,8 +3,10 @@
 
 import sys
 import rospy
+import roslib; roslib.load_manifest('std_srvs')
+import std_srvs.srv
 import missions_lib
-from std_msgs.msg import String, Empty
+from std_msgs.msg import String, Empty, Bool
 from smach import State, StateMachine
 from smach_ros import MonitorState, SimpleActionState, IntrospectionServer
 from actionlib_msgs.msg import GoalStatus
@@ -40,6 +42,14 @@ class MissionsHelper():
         # Position that will be requested to move the head/camera to
         self.__position_request_pan = self.__camera_default_pan_position   
         self.__position_request_tilt = self.__camera_default_tilt_position
+
+        # RPLidar services to start and stop the motor
+        rospy.wait_for_service('stop_motor')
+        rospy.wait_for_service('start_motor')
+        self.__rplidar_stop_motor_srv = rospy.ServiceProxy('stop_motor', std_srvs.srv.Empty)
+        self.__rplidar_start_motor_srv = rospy.ServiceProxy('start_motor', std_srvs.srv.Empty)
+        # LIDAR should be running but make sure
+        self.LidarEnable()        
  
     def Speak(self, text_to_speak, text_to_display):
         voice_msg = voice()
@@ -59,6 +69,23 @@ class MissionsHelper():
         self.__speech_pub_.publish(voice_msg)
         self.__text_out_pub.publish(text_to_display)
 
+    # Function to enable the RPLidar
+    def LidarEnable(self):        
+        self.__rplidar_start_motor_srv()
+        self.__lidar_on = True
+        
+    # Function to disable the RPLidar
+    def LidarDisable(self):        
+        self.__rplidar_stop_motor_srv() 
+        self.__lidar_on = False 
+        
+    # Function to Toggle RPLidar on/off
+    def ToggleLidar(self):
+        if(self.__lidar_on == True):
+            self.LidarDisable()
+        else:
+            self.LidarEnable()     
+    
     # Function to return the camera start position when scanning within head movement range         
     def CameraToStartPos(self):
         # Set the camera position to pan min and tilt min
@@ -191,7 +218,7 @@ class Prepare(State):
             # Mission 2 is scan for faces and greet those known, there are no
             # other parameters with this mission request
             userdata.start = True
-            retVal = 'mission2'
+            retVal = 'mission2'                        
         elif parameters[0] == 'J1':
             # Simple Job 1 is play a supplied wav file and move the face lips           
             # Publish topic for speech wav and robot face animation
@@ -214,7 +241,10 @@ class Prepare(State):
                 userdata.user_data_absolute = False # This will be a relative move
                 userdata.user_data_pan = relative_request_pan
                 userdata.user_data_tilt = relative_request_tilt
-                retVal = 'move_head'
+                retVal = 'move_head'                
+        elif parameters[0] == 'J4':
+            # Simple job to toggle the LIDAR on/off
+            self.__helper_obj.ToggleLidar()
 
         return retVal
         

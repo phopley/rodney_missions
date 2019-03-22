@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="2">
   <name>rodney_missions</name>
-  <version>1.0.1</version>
+  <version>1.1.0</version>
   <description>The rodney_missions package</description>
 
   <maintainer email="sleepyserver6@gmail.com">Philip Hopley</maintainer>
@@ -11,19 +11,13 @@
   <author email="sleepyserver6@gmail.com">Philip Hopley</author>
 
   <buildtool_depend>catkin</buildtool_depend>
-  
-  <build_depend>rospy</build_depend>  
-  <build_depend>smach</build_depend>
-  <build_depend>std_msgs</build_depend>
-  <build_depend>speech</build_depend>
-  <build_depend>face_recognition_msgs</build_depend>  
-  
-  <build_export_depend>rospy</build_export_depend>
-  
+
+  <depend>speech</depend>
+  <depend>face_recognition_msgs</depend>  
+
   <exec_depend>rospy</exec_depend>  
   <exec_depend>smach</exec_depend>
   <exec_depend>std_msgs</exec_depend>
-  <exec_depend>speech</exec_depend>
-  <exec_depend>face_recognition_msgs</exec_depend>
+  <exec_depend>std_srvs</exec_depend>
 
 </package>
