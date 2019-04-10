@@ -2,7 +2,7 @@
 Changelog for package rodney_missions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Unreleased
+1.1.0 (2019/04/10)
 ------------------
 * Added functionality to enable/disable LIDAR
 
