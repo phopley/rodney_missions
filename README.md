@@ -27,6 +27,10 @@ Action Clients:
 * `face_recognition`: To request and obtain the result of a face recognition scan on an image from the camera
 * `move_base`: To reuest that the base is navigated to a new location
 
+Service Clients:
+* `stop_motor`: To disable the LIDAR
+* `start_motor`: To enable the LIDAR
+
 Parameters:
 
 * `/servo/index0/pan/min`: minimum range for the head pan servo. Default value = -(pi/2.0)
@@ -44,7 +48,7 @@ Parameters:
 
 State Machines:
 
-![alt text](https://github.com/phopley/rodney_missions/blob/master/smach.png "State Machine")
+![alt text](https://github.com/phopley/rodney_missions/blob/master/smach.png "Root State Machine")
 
 The top level state machine contains the following states
 * `WAITING`:  
@@ -58,27 +62,29 @@ The top level state machine contains the following states
 * `MOVE_HEAD`:  
   A SimpleActionState that request sthe head/camera be moved
 
-* `MISSION1`:
+![alt text](https://github.com/phopley/rodney_missions/blob/master/smach_mission1.png "Mission 1 State Machine")
+
+* `MISSION1`:  
   A sub state machine responsible for controlling mission 1, take a message to
-  * `PREPARE_MISSION`:
+  * `PREPARE_MISSION`:  
+    A state that loads the given waypoint file
+  * `PREPARE_FOR_HEAD_MOVE`:  
+    A state which sets up the next required position of the head/camera
+  * `MOVE_HEAD`:  
+    A SimpleActionState that requests the head/camera be moved 
+  * `SCAN_FOR_FACES`:  
+    A SimpleActionState that requests the faces recognition operation be carried out on the current image from the camera   
+  * `CHECK_FOR_SUBJECT`:  
+    A state that checks subjects seen by the camera to the ID of the subject we are searching for. If the subject is seen the message is delivered
+  * `WAIT_FOR_USER`:  
+    State that waits for the acknowledge message or timesout after 60 seconds
+  * `DEFAULT_HEAD_POISTION`:  
     ???
-  * `DEFAULT_HEAD_POISTION`:
+  * `PREPARE_TO_MOVE`:  
     ???
-  * `PREPARE_TO_MOVE`:
+  * `MOVE`:  
     ???
-  * `MOVE`:
-    ???
-  * `PREPARE_FOR_HEAD_MOVE`:
-    ???
-  * `MOVE_HEAD`:
-    ???
-  * `SCAN_FOR_FACES`:
-    A SimpleActionState that requests the faces recognition operation be carried out on the current image from the camera
-  * `CHECK_FOR_SUBJECT`:
-    ???
-  * `WAIT_FOR_USER`:
-    ???
-  
+
 * `MISSION2`:  
   A sub state machine responsible for controlling mission 2, face recognition
   * `PREPARE_FOR_MOVEMENT_GRT`:  
