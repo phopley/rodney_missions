@@ -65,7 +65,7 @@ The top level state machine contains the following states
 ![alt text](https://github.com/phopley/rodney_missions/blob/master/smach_mission1.png "Mission 1 State Machine")
 
 * `MISSION1`:  
-  A sub state machine responsible for controlling mission 1, take a message to
+  A sub state machine responsible for controlling mission 1, "take a message to.."
   * `PREPARE_MISSION`:  
     A state that loads the given waypoint file
   * `PREPARE_FOR_HEAD_MOVE`:  
@@ -79,14 +79,16 @@ The top level state machine contains the following states
   * `WAIT_FOR_USER`:  
     State that waits for the acknowledge message or timesout after 60 seconds
   * `DEFAULT_HEAD_POISTION`:  
-    ???
+    A SimpleActionState that returns the head/camera to the default position
   * `PREPARE_TO_MOVE`:  
-    ???
+    A state machine that constructs a nav goal for the MOVE state
   * `MOVE`:  
-    ???
+    A SimpleActionState that moves the robot base to the given nav goal
+
+![alt text](https://github.com/phopley/rodney_missions/blob/master/smach_mission2.png "Mission 2 State Machine")
 
 * `MISSION2`:  
-  A sub state machine responsible for controlling mission 2, face recognition
+  A sub state machine responsible for controlling mission 2, "greet who you recognise"
   * `PREPARE_FOR_MOVEMENT_GRT`:  
     A state which sets up the next required position of the head/camera
   * `MOVE_HEAD_GRT`:  
@@ -96,12 +98,16 @@ The top level state machine contains the following states
   * `GREETING`:  
     A state responsible for forming the response to any faces recognised
 
-* `MISSION4`:
-  A sub state machine responsible for controlling mission 4, go home
-  * `PREPARE_MISSION`:
-    ???
-  * `DEFAULT_HEAD_POSITION`:
-    ???
-  * `MOVE`:
-    ???
+![alt text](https://github.com/phopley/rodney_missions/blob/master/smach_mission4.png "Mission 4 State Machine")
 
+* `MISSION4`:
+  A sub state machine responsible for controlling mission 4, "go home"
+  * `PREPARE_MISSION`:  
+    A state that loads a given waypoint file and extracts the home location and position
+  * `DEFAULT_HEAD_POSITION`:  
+    A SimpleActionState that returns the head/camera to the default position
+  * `MOVE`:  
+    A SimpleActionState that moves the robot base to the given nav goal (home position)
+
+## License
+Software source and object files are licensed under the Apache License, Version 2.0. See the License for the specific language governing permissions and limitations under the License.
