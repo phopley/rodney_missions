@@ -2,6 +2,13 @@
 Changelog for package rodney_missions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+2.0.0 (2019/05/02)
+------------------
+* Some of the parameters on the parameter server are now private
+* Added user input position for screen
+* Added Mission 1 "Take a message to ..."
+* added Mission 4 "Go Home"
+
 1.1.0 (2019/04/10)
 ------------------
 * Added functionality to enable/disable LIDAR

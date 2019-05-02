@@ -5,4 +5,7 @@ head:
   manual_view_step:
     pan: 0.349066
     tilt: 0.349066
+  user_position:
+    pan: 0.0
+    tilt: -0.523599
 

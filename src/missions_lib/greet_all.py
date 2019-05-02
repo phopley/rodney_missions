@@ -25,7 +25,7 @@ from face_recognition_msgs.msg import scan_for_facesAction
 # Child (derived) class. Parent class is StateMachine
 class Mission2StateMachine(StateMachine):
     def __init__(self, helper_obj):
-        StateMachine.__init__(self, outcomes=['complete','preempted','aborted'], input_keys=['start'])
+        StateMachine.__init__(self, outcomes=['complete','preempted','aborted'], input_keys=['start'], output_keys=['mission_status'])
 
         self.__helper_obj = helper_obj
 
@@ -40,7 +40,9 @@ class Mission2StateMachine(StateMachine):
             StateMachine.add('MOVE_HEAD_GRT',
                              SimpleActionState('head_control_node',
                                                point_headAction,                                                  
-                                               goal_slots=['absolute','pan','tilt']),
+                                               goal_slots=['absolute','pan','tilt'],
+                                               result_cb = self.moveHeadComplete,
+                                               output_keys=['mission_status']),
                              transitions={'succeeded':'SCAN_FOR_FACES','preempted':'preempted','aborted':'aborted'},
                              remapping={'absolute':'user_data_absolute','pan':'user_data_pan','tilt':'user_data_tilt'})                                          
 
@@ -50,13 +52,30 @@ class Mission2StateMachine(StateMachine):
                                                scan_for_facesAction,
                                                result_cb=self.face_recognition_result_cb,
                                                input_keys=['seen_dict_in'],
-                                               output_keys=['seen_dict_out']),
-                              remapping={'seen_dict_in':'seen_dict','seen_dict_out':'seen_dict'},                       
+                                               output_keys=['seen_dict_out','mission_status']),
+                              remapping={'seen_dict_in':'seen_dict','seen_dict_out':'seen_dict'},                      
                               transitions={'succeeded':'PREPARE_FOR_MOVEMENT_GRT','preempted':'preempted','aborted':'aborted'})
                                                                       
             StateMachine.add('GREETING',
                              Greeting(self.__helper_obj),
                              transitions={'complete':'complete'})
+
+    def moveHeadComplete(self, userdata, status, result):
+        if status == GoalStatus.PREEMPTED:
+            # Report with voice that the mission was cancelled
+            message = 'Mission two cancelled'
+            self.__helper_obj.Speak(message, message)
+            
+            # set the mission status
+            userdata.mission_status = 'Greet mission cancelled'
+            
+        elif status == GoalStatus.ABORTED:
+            # Report with voice that the mission was aborted
+            message = 'Warning mission two aborted'
+            self.__helper_obj.Speak(message, message + ':(')
+            
+            # set the mission status
+            userdata.mission_status = 'Greet mission failed during head move action'
 
     def face_recognition_result_cb(self, userdata, status, result):
         if status == GoalStatus.SUCCEEDED:
@@ -74,6 +93,22 @@ class Mission2StateMachine(StateMachine):
 
                 # Update disctionary stored in user data        
                 userdata.seen_dict_out = local_dict
+                
+        elif status == GoalStatus.PREEMPTED:
+            # Report with voice that the mission was cancelled
+            message = 'Mission two cancelled'
+            self.__helper_obj.Speak(message, message)
+            
+            # set the mission status
+            userdata.mission_status = 'Greet mission cancelled'
+            
+        elif status == GoalStatus.ABORTED:
+            # Report with voice that the mission was aborted
+            message = 'Warning mission two aborted'
+            self.__helper_obj.Speak(message, message + ':(')
+            
+            # set the mission status
+            userdata.mission_status = 'Greet mission failed during scan for faces action'
 
         # By not returning anything the state will return with the corresponding outcome of the action
 
@@ -114,7 +149,7 @@ class PrepareMovementGeeting(State):
 class Greeting(State):
     def __init__(self, helper_obj):
         State.__init__(self, outcomes=['complete'],
-                       input_keys=['seen_dict'])
+                       input_keys=['seen_dict'], output_keys=['mission_status'])
         self.__helper_obj = helper_obj
 
     def execute(self, userdata):
@@ -141,6 +176,8 @@ class Greeting(State):
             
         # Speak greeting
         self.__helper_obj.Speak(greeting, greeting + ':)')
+        
+        userdata.mission_status = 'Greet mission complete'
         
         return 'complete'
 

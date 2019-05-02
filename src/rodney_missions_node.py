@@ -42,12 +42,16 @@ class MissionsHelper():
         # Default position after mission ends
         self.__camera_default_pan_position = rospy.get_param("/head/position/pan", 0.0)
         self.__camera_default_tilt_position = rospy.get_param("/head/position/tilt", 0.0)
+        # Using '~private_name' will prefix the parameters with the node name given in launch file
         # Step value to move the camera by when searching
-        self.__pan_step_value = rospy.get_param("/head/view_step/pan", 0.436332)
-        self.__tilt_step_value = rospy.get_param("/head/view_step/tilt", 0.436332)
+        self.__pan_step_value = rospy.get_param("~head/view_step/pan", 0.436332)
+        self.__tilt_step_value = rospy.get_param("~head/view_step/tilt", 0.436332)
         # Step value to move the camera in manual mode
-        self.__manual_pan_step_value = rospy.get_param("/head/manual_view_step/pan", 0.174533)
-        self.__manual_tilt_step_value = rospy.get_param("/head/manual_view_step/tilt", 0.174533)
+        self.__manual_pan_step_value = rospy.get_param("~head/manual_view_step/pan", 0.174533)
+        self.__manual_tilt_step_value = rospy.get_param("~head/manual_view_step/tilt", 0.174533)
+        # Position to move to for user input
+        self.__user_input_position_pan = rospy.get_param("~head/user_position/pan", 0.0)
+        self.__user_input_position_tilt = rospy.get_param("~head/user_position/tilt", -0.5)
         
         # When true and scanning pan angle will increase, otherwise decrease
         self.__increase_pan = True
@@ -208,12 +212,15 @@ class MissionsHelper():
                 self.__position_request_pan += relative_request_pan            
             
         return relative_request_pan, relative_request_tilt
+        
+    def UserInputPosition(self):
+        return self.__user_input_position_pan, self.__user_input_position_tilt               
     
                           
 # The PREPARE state
 class Prepare(State):
     def __init__(self, helper_obj):
-        State.__init__(self, outcomes=['mission2','done_task','head_default','move_head'], 
+        State.__init__(self, outcomes=['mission1','mission2','mission4','done_task','head_default','move_head'], 
                        input_keys=['mission'],
                        output_keys=['mission_data','start','user_data_absolute','user_data_pan','user_data_tilt'])
         self.__helper_obj = helper_obj
@@ -227,11 +234,21 @@ class Prepare(State):
         # Split into parameters using '^' as the delimiter
         parameters = userdata.mission.split("^")
         
-        if parameters[0] == 'M2':
+        if parameters[0] == 'M1':
+            # Mission 1 to search for a known person and deliver a message
+            # parameter[1] contains filename of file containing poses for the patrol,
+            # the id of the person to search for and the message to deliver            
+            userdata.mission_data = parameters[1]
+            retVal = 'mission1'        
+        elif parameters[0] == 'M2':
             # Mission 2 is scan for faces and greet those known, there are no
             # other parameters with this mission request
             userdata.start = True
-            retVal = 'mission2'                        
+            retVal = 'mission2'
+        elif parameters[0] == 'M4':
+            # Mission 4 is go home. parameter[1] contains filename of file containing poses
+            userdata.mission_data = parameters[1]
+            retVal = 'mission4'
         elif parameters[0] == 'J1':
             # Simple Job 1 is play a supplied wav file and move the face lips           
             # Publish topic for speech wav and robot face animation
@@ -243,11 +260,19 @@ class Prepare(State):
         elif parameters[0] == 'J3':
             # Simple Job 3 is to move the head/camera. This command will only
             # be sent in manual mode.
-            # parameters[1] will either be 'u', 'd', 'c' or '-'
+            # parameters[1] will either be 'u', 'd', 'c', 'i' or '-'
             # parameters[2] will either be 'l', 'r' or '-'
-            # Check for return to default command
+            # Check for command
             if 'c' in parameters[1]:
+                # Move to default position
                 retVal = 'head_default'
+            elif 'i' in parameters[1]:
+                # Move to user input position. This position is a good position for user input at the screen
+                pan_position, tilt_position = self.__helper_obj.UserInputPosition()
+                userdata.user_data_absolute = True # This will be a actual position move
+                userdata.user_data_pan = pan_position
+                userdata.user_data_tilt = tilt_position
+                retVal = 'move_head'
             else:                
                 relative_request_pan, relative_request_tilt = self.__helper_obj.CameraManualMove(parameters[1]+parameters[2])                
                 # Set up user data that will be used for goal in next state
@@ -265,12 +290,13 @@ class Prepare(State):
 # The REPORT state
 class Report(State):
     def __init__(self):
-        State.__init__(self, outcomes=['success'])
+        State.__init__(self, outcomes=['success'], input_keys=['mission_status'])
         self.__pub = rospy.Publisher('/missions/mission_complete', String, queue_size=5)
     
     def execute(self, userdata):        
         # Publishes message that mission completed
-        self.__pub.publish("Mission Complete")
+        message = userdata.mission_status
+        self.__pub.publish(message)
         return 'success'        
         
 # Top level state machine. The work for each mission is another state machine
@@ -288,7 +314,7 @@ class RodneyMissionsNode:
         
         # ------------------------- Top level state machine -------------------------
         # Create top level state machine
-        self.__sm = StateMachine(outcomes=['preempted','aborted'],
+        self.__sm = StateMachine(outcomes=['preempted','aborted'],                                 
                                  output_keys=['mission_data'])
         with self.__sm:                                   
             # Add a state which monitors for a mission to run            
@@ -303,7 +329,7 @@ class RodneyMissionsNode:
             # Add state to prepare the mission            
             StateMachine.add('PREPARE',
                              Prepare(self.__missions_helper),                             
-                             transitions={'mission2':'MISSION2',
+                             transitions={'mission1':'MISSION1','mission2':'MISSION2','mission4':'MISSION4',
                                           'done_task':'WAITING','head_default':'DEFAULT_HEAD_POSITION',
                                           'move_head':'MOVE_HEAD'})
                              
@@ -335,6 +361,15 @@ class RodneyMissionsNode:
                              transitions={'succeeded':'WAITING', 'preempted':'WAITING', 'aborted':'aborted'},
                              remapping={'absolute':'user_data_absolute', 'pan':'user_data_pan', 'tilt':'user_data_tilt'}) 
 
+            # ------------------------- Sub State machine for mission 1 ---------------------
+            # Create a sub state machine for mission 1 - take a message to
+            self.__sm_mission1 = missions_lib.Mission1StateMachine(self.__missions_helper)
+            
+            # Now add the sub state machine for mission 1 to the top level one
+            StateMachine.add('MISSION1', 
+                             self.__sm_mission1, 
+                             transitions={'complete':'REPORT','preempted':'REPORT','aborted':'REPORT'}) 
+            
             # ------------------------- Sub State machine for mission 2 ---------------------
             # Create a sub state machine for mission 2 - face detection and greeting
             self.__sm_mission2 = missions_lib.Mission2StateMachine(self.__missions_helper)
@@ -342,8 +377,18 @@ class RodneyMissionsNode:
             # Now add the sub state machine for mission 2 to the top level one
             StateMachine.add('MISSION2', 
                              self.__sm_mission2, 
-                             transitions={'complete':'REPORT','preempted':'REPORT','aborted':'aborted'})                                        
+                             transitions={'complete':'REPORT','preempted':'REPORT','aborted':'aborted'}) 
+                                                                    
+            # ------------------------- Sub State machine for mission 4 ---------------------
+            # Create a sub state machine for mission 4 - Go Home
+            self.__sm_mission4 = missions_lib.Mission4StateMachine(self.__missions_helper)
+            
+            # Now add the sub state machine for mission 4 to the top level one
+            StateMachine.add('MISSION4', 
+                             self.__sm_mission4, 
+                             transitions={'complete':'REPORT','preempted':'REPORT','aborted':'REPORT'})            
             # -------------------------------------------------------------------------------
+            
             
         # Create and start the introspective server so that we can use smach_viewer
         sis = IntrospectionServer('server_name', self.__sm, '/SM_ROOT')
@@ -368,8 +413,12 @@ class RodneyMissionsNode:
     # Callback for cancel mission message
     def CancelCallback(self, data):
         # If a sub statemachine for a mission is running then request it be preempted
-        if self.__sm_mission2.is_running():
-            self.__sm_mission2.request_preempt()        
+        if self.__sm_mission1.is_running():
+            self.__sm_mission1.request_preempt() 
+        elif self.__sm_mission2.is_running():
+            self.__sm_mission2.request_preempt() 
+        elif self.__sm_mission4.is_running():
+            self.__sm_mission4.request_preempt()                   
         
     def ShutdownCallback(self):        
         self.__sm.request_preempt()
