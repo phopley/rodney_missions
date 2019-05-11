@@ -74,7 +74,7 @@ class Mission4StateMachine(StateMachine):
             self.__helper_obj.Speak(message, message)
             
             # set the mission status
-            userdata.mission_status = 'Go home mission cancelled'
+            userdata.mission_status = 'Go to waypont mission cancelled'
             
         elif status == GoalStatus.ABORTED:
             # Report with voice that the mission was aborted
@@ -82,7 +82,7 @@ class Mission4StateMachine(StateMachine):
             self.__helper_obj.Speak(message, message + ':(')
             
             # set the mission status
-            userdata.mission_status = 'Go home mission failed during move head action'            
+            userdata.mission_status = 'Go to waypont mission failed during move head action'            
                                      
     def moveComplete(self, userdata, status, result):
         if status == GoalStatus.PREEMPTED:
@@ -91,7 +91,7 @@ class Mission4StateMachine(StateMachine):
             self.__helper_obj.Speak(message, message)
             
             # set the mission status
-            userdata.mission_status = 'Go home mission cancelled'
+            userdata.mission_status = 'Go to waypont mission cancelled'
             
         elif status == GoalStatus.ABORTED:
             # Report with voice that the mission was aborted
@@ -99,10 +99,10 @@ class Mission4StateMachine(StateMachine):
             self.__helper_obj.Speak(message, message + ':(')
             
             # set the mission status
-            userdata.mission_status = 'Go home mission failed during base move action'
+            userdata.mission_status = 'Go to waypont mission failed during base move action'
             
         elif status == GoalStatus.SUCCEEDED:
-            userdata.mission_status = 'Go home mission complete'
+            userdata.mission_status = 'Go to waypont mission complete'
             
 
 # PREPARE_MISSION State. Prepares the mission by loading the waypoint file
@@ -114,14 +114,18 @@ class PrepareMission4(State):
         self.__helper_obj = helper_obj
         
     def execute(self, userdata):
-        # mission_data will contain the filename of the file containing the waypoints including the home waypoint        
+        # Parse the mission data using '|' as the delimiter        
+        # parameters[0] will contain the filename of the file containing the poses
+        # parameters[1] if it exists will contain the way point to move to. If not waypoint given then go home
+        parameters = userdata.mission_data.split("|")
+                
         
         # Ensure the Lidar is enabled
         self.__helper_obj.LidarEnable()
         
         # Load the waypoints
         try:
-            with open(userdata.mission_data, 'r') as stream:
+            with open(parameters[0], 'r') as stream:
                 try:                    
                     waypoints = yaml.load(stream)
                     next_outcome = 'ready'
@@ -134,11 +138,17 @@ class PrepareMission4(State):
             userdata.mission_status = "Can't open waypoint file"
             next_outcome = 'error'                    
         
-        if next_outcome == 'ready':
-            # Check the home waypoint exists
-            if 'home' in waypoints:            
-                # Copy the home waypoint data in to a PoseStamped message and userdata                            
-                waypoint = waypoints['home']
+        if next_outcome == 'ready':        
+            # Was a waypoint include in the mission_data or are we going home
+            if len(parameters) > 1:
+                target_waypoint = parameters[1]
+            else:
+                target_waypoint = 'home'
+                
+            # Check the waypoint exists
+            if target_waypoint in waypoints:            
+                # Copy the waypoint data in to a PoseStamped message and userdata                            
+                waypoint = waypoints[target_waypoint]
         
                 target_pose = PoseStamped()
             
@@ -154,8 +164,8 @@ class PrepareMission4(State):
                 userdata.destination = target_pose                              
  
             else:
-                rospy.logerr('No home waypoint in file')
-                userdata.mission_status = 'No home waypoint in file'
+                rospy.logerr('Given waypoint not in file')
+                userdata.mission_status = 'Given waypoint not in file'
                 next_outcome = 'error'                  
     
         return next_outcome                                    

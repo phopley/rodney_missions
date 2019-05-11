@@ -2,6 +2,10 @@
 Changelog for package rodney_missions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Unreleased
+------------------
+* Mission 4 updated to go to other waypoints not just 'home'
+
 2.0.0 (2019/05/02)
 ------------------
 * Some of the parameters on the parameter server are now private

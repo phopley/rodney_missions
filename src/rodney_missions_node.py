@@ -245,9 +245,10 @@ class Prepare(State):
             # other parameters with this mission request
             userdata.start = True
             retVal = 'mission2'
-        elif parameters[0] == 'M4':
+        elif parameters[0] == 'M4':            
             # Mission 4 is go home. parameter[1] contains filename of file containing poses
-            userdata.mission_data = parameters[1]
+            # It may also contain a waypoint to got to. If not we will go
+            userdata.mission_data = parameters[1]            
             retVal = 'mission4'
         elif parameters[0] == 'J1':
             # Simple Job 1 is play a supplied wav file and move the face lips           
